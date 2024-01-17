@@ -2,7 +2,7 @@
 #
 # J. Hertrich, 2024.
 # Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms.
-# arxiv ...
+# arxiv preprint 2401.08260
 #
 # Please cite the paper, if you use this code.
 

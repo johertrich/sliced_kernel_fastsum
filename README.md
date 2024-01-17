@@ -1,6 +1,6 @@
 # Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms
 
-This is the implementation to the paper "Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms" available at https://arxiv.org/abs/xxxx.xxxxx 
+This is the implementation to the paper "Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms" available at https://arxiv.org/abs/2401.08260
 
 The code is written in PyTorch. For the NFFT we use the package torch-NFFT available at https://github.com/dominikbuenger/torch_nfft
 Note that this package is GPU-only. For a CPU implementation we go back to the NDFT which might be significantly slower.
@@ -14,7 +14,7 @@ If you have any questions, feel free to contact me via the email address j.hertr
 
 [1] J. Hertrich (2024).  
 Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms.  
-Preprint available under https://arxiv.org/abs/xxxx.xxxxx
+Preprint available under https://arxiv.org/abs/2401.08260
 
 [2] A. Rahimi and B. Recht (2007).   
 Random features for large-scale kernel machines.   
