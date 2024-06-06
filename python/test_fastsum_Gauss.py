@@ -7,46 +7,49 @@
 # Please cite the paper, if you use this code.
 
 import torch
-from fastsum import *
+from fastsum import naive_kernel_sum, fast_Gaussian_summation_batched
 import math
 import numpy as np
-import scipy, scipy.special
+import scipy.io
 from kernels import *
 import time
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dtype=torch.float
 
-d=50
-alpha_base=.5
-sliced_factor=compute_sliced_factor(d)
 
-def kernel_sum_comparison(N,d,alpha,P_list,runs=10,multiplicities=10,n_ft=200):
-    torch.cuda.empty_cache()
+def kernel_sum_comparison(N,d,sigma_sq,P_list,runs=10,multiplicities=10,n_ft=200):
     errors_fastsum=[[] for P in P_list]
     times_naive=[]
     times_fastsum=[[] for P in P_list]
     for _ in range(runs):
-        kernel_mat=lambda x,y: Laplacian_kernel_mat(x,y,alpha)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        kernel_mat=lambda x,y: Gaussian_kernel_mat(x,y,sigma_sq)
         x=.1*torch.randn((N,d),dtype=dtype,device=device)
         y=.1*torch.randn((N,d),dtype=dtype,device=device)
         x_weights=torch.rand((N,),dtype=dtype,device=device)
         print('Naive')
+        torch.cuda.synchronize()
         tic=time.time()
         for _ in range(multiplicities):
             out_naive=naive_kernel_sum(x,x_weights,y,kernel_mat,batch_size=1000000//N)
+        torch.cuda.synchronize()
         toc=time.time()-tic
         times_naive.append(toc)
         for P_num,P in enumerate(P_list):
             print(f'P={P}')
+            torch.cuda.synchronize()
             tic=time.time()
             for _ in range(multiplicities):
-                out_fastsum=fast_Laplacian_summation_batched(x,y,x_weights,alpha,P,n_ft,sliced_factor,x_range=0.3,batch_size=1000)
+                out_fastsum=fast_Gaussian_summation_batched(x,y,x_weights,sigma_sq,P,n_ft,x_range=0.2,batch_size=1000)
+            torch.cuda.synchronize()
             toc=time.time()-tic
             times_fastsum[P_num].append(toc)
             error=torch.sum(torch.abs(out_naive-out_fastsum)).item()
             rel_error=error/(torch.sum(torch.abs(x_weights))*y.shape[0])
             errors_fastsum[P_num].append(rel_error.item())
+    print((torch.sum(out_naive**2)**.5).item())
     time_naive_mean=np.mean(times_naive)
     time_naive_std=np.std(times_naive)
     time_fastsum_mean=[np.mean(times_fastsum[P_num]) for P_num in range(len(P_list))]
@@ -54,7 +57,8 @@ def kernel_sum_comparison(N,d,alpha,P_list,runs=10,multiplicities=10,n_ft=200):
     error_fastsum_mean=[np.mean(errors_fastsum[P_num]) for P_num in range(len(P_list))]
     error_fastsum_std=[np.std(errors_fastsum[P_num]) for P_num in range(len(P_list))]
     return time_naive_mean,time_naive_std,time_fastsum_mean,time_fastsum_std,error_fastsum_mean,error_fastsum_std
-    
+
+
 
 #########################################################################################################
 #################### CREATE TABLES AND PLOT DATA ########################################################
@@ -63,18 +67,18 @@ def kernel_sum_comparison(N,d,alpha,P_list,runs=10,multiplicities=10,n_ft=200):
 tab1=True
 tab2=True
 tab3=True
-alpha=.5
-n_ft=1024
 
 if tab1:
     # Table runtime and error vs N    
-    Ns=list(range(2000,52000,2000))
+    Ns=list(range(10000,110000,10000))
     d=50
+    sigma_sq=1.
     Ps=[10,100,1000,2000,5000]
+    n_ft=1024
     results=[]
     for N in Ns:
         print(f'Run with N={N}')
-        results.append(kernel_sum_comparison(N,d,alpha,Ps,runs=10,multiplicities=1,n_ft=n_ft))
+        results.append(kernel_sum_comparison(N,d,sigma_sq,Ps,runs=10,multiplicities=1,n_ft=n_ft))
     print(results)
 
     # Build table
@@ -111,21 +115,22 @@ if tab1:
     runtimes=np.array(runtimes)
     errors=np.array(errors)
     print(runtimes)
-    with open('Laplace_table_runtimes','w') as f:
+    with open('Gauss_table_runtimes','w') as f:
         f.writelines(lines)
-    with open('Laplace_table_errors','w') as f:
+    with open('Gauss_table_errors','w') as f:
         f.writelines(lines_err)
-    scipy.io.savemat('Laplace_results.mat',{'runtimes':runtimes,'errors':errors,'Ns':Ns,'Ps':Ps,'d':d})
+    scipy.io.savemat('Gauss_results.mat',{'runtimes':runtimes,'errors':errors,'Ns':Ns,'Ps':Ps,'d':d})
     
 if tab2:
     N=10000
-    ds=[1]+list(range(20,220,20))#[1]+list(range(10,60,10))
+    ds=[1]+list(range(20,220,20))
+    sigma_sq=1.
     Ps=[10,100,1000,2000,5000]
+    n_ft=1024
     results=[]
     for d in ds:
-        sliced_factor=compute_sliced_factor(d)
         print(f'Run with d={d}')
-        results.append(kernel_sum_comparison(N,d,alpha,Ps,runs=10,multiplicities=1,n_ft=n_ft))
+        results.append(kernel_sum_comparison(N,d,sigma_sq,Ps,runs=10,multiplicities=1,n_ft=n_ft))
     print(results)
 
     # Build table
@@ -162,21 +167,22 @@ if tab2:
     runtimes=np.array(runtimes)
     errors=np.array(errors)
     print(runtimes)
-    with open('Lapalce_table_runtimes_base_d','w') as f:
+    with open('Gauss_table_runtimes_base_d','w') as f:
         f.writelines(lines)
-    with open('Laplace_table_errors_base_d','w') as f:
+    with open('Gauss_table_errors_base_d','w') as f:
         f.writelines(lines_err)
-    scipy.io.savemat('Laplace_results_d.mat',{'runtimes':runtimes,'errors':errors,'N':N,'Ps':Ps,'ds':ds})
+    scipy.io.savemat('Gauss_results_d.mat',{'runtimes':runtimes,'errors':errors,'N':N,'Ps':Ps,'ds':ds})
 
 if tab3:
     N=10000
     ds=[10,50,100,200]
+    sigma_sq=1.
     Ps=[10,50,100,200,500,1000,2000,5000,10000]
+    n_ft=1024
     results=[]
     for d in ds:
-        sliced_factor=compute_sliced_factor(d)
         print(f'Run with d={d}')
-        results.append(kernel_sum_comparison(N,d,alpha,Ps,runs=10,multiplicities=1,n_ft=n_ft))
+        results.append(kernel_sum_comparison(N,d,sigma_sq,Ps,runs=10,multiplicities=1,n_ft=n_ft))
     print(results)
 
     # Build table
@@ -213,8 +219,9 @@ if tab3:
     runtimes=np.array(runtimes)
     errors=np.array(errors)
     print(runtimes)
-    with open('Lapalce_table_runtimes_base_P','w') as f:
+    with open('Gauss_table_runtimes_base_P','w') as f:
         f.writelines(lines)
-    with open('Laplace_table_errors_base_P','w') as f:
+    with open('Gauss_table_errors_base_P','w') as f:
         f.writelines(lines_err)
-    scipy.io.savemat('Laplace_results_P.mat',{'runtimes':runtimes,'errors':errors,'N':N,'Ps':Ps,'ds':ds})
+    scipy.io.savemat('Gauss_results_P.mat',{'runtimes':runtimes,'errors':errors,'N':N,'Ps':Ps,'ds':ds})
+

@@ -29,16 +29,20 @@ def kernel_sum_comparison(N,d,alpha,P_list,nu,runs=10,multiplicities=10,n_ft=200
         y=.1*torch.randn((N,d),dtype=dtype,device=device)
         x_weights=torch.rand((N,),dtype=dtype,device=device)
         print('Naive')
+        torch.cuda.synchronize()
         tic=time.time()
         for _ in range(multiplicities):
             out_naive=naive_kernel_sum(x,x_weights,y,kernel_mat,batch_size=1000000//N)
+        torch.cuda.synchronize()
         toc=time.time()-tic
         times_naive.append(toc)
         for P_num,P in enumerate(P_list):
             print(f'P={P}')
+            torch.cuda.synchronize()
             tic=time.time()
             for _ in range(multiplicities):
                 out_fastsum=fast_Matern_summation_batched(x,y,x_weights,alpha,P,n_ft,nu,x_range=0.2,batch_size=1000)
+            torch.cuda.synchronize()
             toc=time.time()-tic
             times_fastsum[P_num].append(toc)
             error=torch.sum(torch.abs(out_naive-out_fastsum)).item()
@@ -67,7 +71,7 @@ n_ft=2**10
 
 if tab1:
     # Table runtime and error vs N    
-    Ns=list(range(2000,52000,2000))
+    Ns=list(range(10000,110000,10000))
     d=50
     alpha=1.
     Ps=[10,100,1000,2000,5000]

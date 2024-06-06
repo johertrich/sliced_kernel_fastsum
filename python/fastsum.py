@@ -115,6 +115,41 @@ def naive_kernel_sum(x,x_weights,y,kernel_mat_fun,batch_size=100):
         i+=batch_size
     return naive_sum
 
+def naive_kernel_sum_keops_Gauss(x,x_weights,y,sigma_sq,batch_size=100):
+    # Naive kernel summation via the kernel matrix
+    # with pykeops
+    d=x.shape[1]
+    N=x.shape[0]
+    naive_sum=0
+    i=0
+    y=pykeops.torch.LazyTensor(y[None,:,:])
+    # batching for fitting memory constraints
+    while i<N:
+        x_batch=pykeops.torch.LazyTensor(x[i:i+batch_size,None,:])
+        x_weights_batch=pykeops.torch.LazyTensor(x_weights[i:i+batch_size,None],axis=0)
+        kernel_mat=(-.5*((x_batch-y)**2).sum(-1)/sigma_sq).exp()
+        naive_sum+=(kernel_mat*x_weights_batch).sum(0)
+        i+=batch_size
+    return naive_sum.squeeze()
+
+
+def naive_kernel_sum_keops_energy(x,x_weights,y,batch_size=100):
+    # Naive kernel summation via the kernel matrix
+    # with pykeops
+    d=x.shape[1]
+    N=x.shape[0]
+    naive_sum=0
+    i=0
+    y=pykeops.torch.LazyTensor(y[None,:,:])
+    # batching for fitting memory constraints
+    while i<N:
+        x_batch=pykeops.torch.LazyTensor(x[i:i+batch_size,None,:])
+        x_weights_batch=pykeops.torch.LazyTensor(x_weights[i:i+batch_size,None],axis=0)
+        kernel_mat=((x_batch-y)**2).sum(-1).sqrt()
+        naive_sum-=(kernel_mat*x_weights_batch).sum(0)
+        i+=batch_size
+    return naive_sum.squeeze()
+
 def fast_Gaussian_summation(x,y,x_weights,sigma_sq,P,n_ft,x_range=0.1):
     # Fast summation for the Gaussian kernel
     d=x.shape[1]
@@ -303,14 +338,14 @@ def fast_Laplacian_summation(x,y,x_weights,alpha,P,n_ft,sliced_factor,x_range=0.
     alpha_real=alpha/scale_factor
     
     fastsum_energy=fastsum_energy_kernel_1D(x_proj.transpose(0,1),x_weights[None,:].tile(P,1),y_proj.transpose(0,1)).transpose(0,1)
-    fastsum_energy=alpha_real*fastsum_energy/sliced_factor
+    fastsum_energy=alpha_real*fastsum_energy*sliced_factor
 
     
     # compute kernel Fourier coefficients
     h = torch.arange((-n_ft+1)//2, (n_ft+1)//2, device=device)
     perm = h%n_ft
     perm_inv = torch.argsort(h%n_ft)
-    vect=Laplace_kernel_fun_1d(torch.abs(h/n_ft),alpha_real,d)+alpha_real*torch.abs(h/n_ft)/sliced_factor
+    vect=Laplace_kernel_fun_1d(torch.abs(h/n_ft),alpha_real,d)+alpha_real*torch.abs(h/n_ft)*sliced_factor
     vect_perm = vect[perm_inv]
     kernel_ft= 1/n_ft * torch.fft.fft( vect_perm )[perm] 
     kernel_ft=kernel_ft
