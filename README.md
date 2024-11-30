@@ -2,7 +2,7 @@
 
 This repository reproduces the numerical examples from the paper "Fast Kernel Summation in High Dimensions via Slicing and Fourier Transforms" available at https://doi.org/10.1137/24M1632085 (a preprint is available at https://arxiv.org/abs/2401.08260 ).
 
-**Note**: **The purpose of this repository is to reproduce the results from [this paper](https://doi.org/10.1137/24M1632085). A more up-to-date implementation of the fast kernel summation is available at [https://github.com/johertrich/simple_torch_NFFT](https://github.com/johertrich/simple_torch_NFFT).**
+**Note**: **The purpose of this repository is to reproduce the results from [this paper](https://doi.org/10.1137/24M1632085). For Python, a more up-to-date implementation of the fast kernel summation is available at [https://github.com/johertrich/simple_torch_NFFT](https://github.com/johertrich/simple_torch_NFFT).**
 
 -------------------------------------------------------------------------------------
 
